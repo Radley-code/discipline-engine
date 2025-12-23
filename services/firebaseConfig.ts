@@ -3,7 +3,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyAeY12mGvyWS_4s0D7eCo63sV_xoikDEV8',
+  apiKey: 'AIzaSyAey12mGvyWS_4s0D7eCo63sV_xoikDEV8',
   authDomain: 'discipline-engine-29d21.firebaseapp.com',
   projectId: 'discipline-engine-29d21',
   storageBucket: 'discipline-engine-29d21.appspot.com',
