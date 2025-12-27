@@ -20,7 +20,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/screens/ChecklistScreen");
+      router.replace("/");
     } catch (err: any) {
       setError(err.message);
     }

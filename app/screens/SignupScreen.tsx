@@ -23,7 +23,7 @@ export default function SignupScreen() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       // name/referral can be stored later; for now we just create the account
-      router.replace("/screens/ChecklistScreen");
+      router.replace("/");
     } catch (err: any) {
       setError(err.message);
     }
