@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
   Image,
@@ -9,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../services/firebaseConfig";
+import { auth, db } from "../../services/firebaseConfig";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -21,8 +22,39 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // name/referral can be stored later; for now we just create the account
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const uid = userCredential.user.uid;
+
+      // Save initial empty checklist log
+      const today = new Date().toISOString().split("T")[0]; // Date format <YYYY-MM-DD>
+      await setDoc(doc(db, "users", uid, "dailyLogs", today), {
+        morningPrayer: false,
+        workout: false,
+        deepWork: false,
+        tradingSession: false,
+        reading: false,
+        journaling: false,
+        meditation: false,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Save basic profile (merge) so we have a name/email
+      await setDoc(
+        doc(db, "users", uid),
+        {
+          name: name || "",
+          email,
+          referral: referral || "",
+          createdAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      // Navigate into app (tabs root)
       router.replace("/");
     } catch (err: any) {
       setError(err.message);
