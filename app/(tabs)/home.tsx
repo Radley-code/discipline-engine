@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,7 +11,6 @@ import {
   View,
 } from "react-native";
 import CircularProgress from "../../components/CircularProgress";
-import { IconSymbol } from "../../components/ui/icon-symbol";
 import { Colors } from "../../constants/theme";
 import { saveDailyLog } from "../../services/dataService";
 import { auth } from "../../services/firebaseConfig";
@@ -30,6 +30,8 @@ export default function HomeTab() {
   const [states, setStates] = useState<Record<string, boolean>>(
     Object.fromEntries(items.map((i) => [i.key, false]))
   );
+  const [saving, setSaving] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   const completed = Object.values(states).filter(Boolean).length;
   const progress = Math.round((completed / items.length) * 100);
@@ -40,32 +42,35 @@ export default function HomeTab() {
   const handleSave = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    const dateId = new Date().toISOString().split("T")[0];
-    await saveDailyLog(uid, dateId, states);
-    alert("Progress saved");
+    setSaving(true);
+    try {
+      const dateId = new Date().toISOString().split("T")[0];
+      await saveDailyLog(uid, dateId, states);
+      alert("Progress saved");
+    } catch (err) {
+      console.error("Save error", err);
+      alert("Failed to save progress");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogout = async () => {
+    setLogoutLoading(true);
     try {
       await signOut(auth);
+    } catch (err) {
+      console.error("Logout error", err);
     } finally {
       router.replace("/screens/LoginScreen");
+      setLogoutLoading(false);
     }
   };
 
   return (
     <View style={styles.page}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.back}
-          onPress={() => {
-            /* left icon action if needed */
-          }}
-        >
-          <IconSymbol name="arrow.left" size={22} color="#F4C542" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Checklist</Text>
-        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
@@ -92,12 +97,31 @@ export default function HomeTab() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveText}>Save</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving ? { opacity: 0.9 } : undefined]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#000" />
+          ) : (
+            <Text style={styles.saveText}>Save</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity
+          style={[
+            styles.logoutButton,
+            logoutLoading ? { opacity: 0.9 } : undefined,
+          ]}
+          onPress={handleLogout}
+          disabled={logoutLoading}
+        >
+          {logoutLoading ? (
+            <ActivityIndicator color="#F4C542" />
+          ) : (
+            <Text style={styles.logoutText}>Logout</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -107,16 +131,17 @@ export default function HomeTab() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: Colors.dark.background },
   header: {
-    height: 56,
+    height: 72,
     paddingHorizontal: 12,
+    paddingTop: 8,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     borderBottomWidth: 1,
     borderColor: "#111",
   },
   back: { width: 36, alignItems: "flex-start" },
-  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700", marginTop: 6 },
   content: { padding: 20, paddingBottom: 40 },
   progressWrap: { alignItems: "center", marginVertical: 18 },
   card: {

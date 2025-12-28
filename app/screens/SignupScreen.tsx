@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   StyleSheet,
   Text,
@@ -19,8 +20,11 @@ export default function SignupScreen() {
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
+    setError("");
+    setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -43,11 +47,12 @@ export default function SignupScreen() {
       });
 
       // Save basic profile (merge) so we have a name/email
+
       await setDoc(
         doc(db, "users", uid),
         {
-          name: name || "",
-          email,
+          name: name,
+          email: email,
           referral: referral || "",
           createdAt: new Date().toISOString(),
         },
@@ -57,7 +62,10 @@ export default function SignupScreen() {
       // Navigate into app (tabs root)
       router.replace("/");
     } catch (err: any) {
-      setError(err.message);
+      console.error("Signup error", err);
+      setError(err?.message ?? "Signup failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,11 +118,16 @@ export default function SignupScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { opacity: loading ? 0.9 : 1 }]}
           onPress={handleSignup}
           activeOpacity={0.85}
+          disabled={loading}
         >
-          <Text style={styles.actionText}>Create Account</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Text style={styles.actionText}>Create Account</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity

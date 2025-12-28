@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   StyleSheet,
   Text,
@@ -15,14 +16,20 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async () => {
+    setError("");
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.replace("/");
     } catch (err: any) {
-      setError(err.message);
+      console.error("Login error", err);
+      setError(err?.message ?? "Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,8 +77,13 @@ export default function LoginScreen() {
           style={styles.actionButton}
           onPress={handleLogin}
           activeOpacity={0.85}
+          disabled={loading}
         >
-          <Text style={styles.actionText}>Login</Text>
+          {loading ? (
+            <ActivityIndicator color="#000" />
+          ) : (
+            <Text style={styles.actionText}>Login</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.dividerRow}>
