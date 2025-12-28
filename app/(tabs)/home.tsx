@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
-import React, { useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,7 +14,7 @@ import {
 import CircularProgress from "../../components/CircularProgress";
 import { Colors } from "../../constants/theme";
 import { saveDailyLog } from "../../services/dataService";
-import { auth } from "../../services/firebaseConfig";
+import { auth, db } from "../../services/firebaseConfig";
 
 const items = [
   { key: "morningPrayer", label: "Morning Prayer", streak: 12 },
@@ -32,6 +33,29 @@ export default function HomeTab() {
   );
   const [saving, setSaving] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchProfile = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const ref = doc(db, "users", uid);
+        const snap = await getDoc(ref);
+        if (mounted && snap.exists()) {
+          const data = snap.data() as any;
+          if (data?.name) setDisplayName(String(data.name));
+        }
+      } catch (e) {
+        console.error("Failed to load profile", e);
+      }
+    };
+    fetchProfile();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const completed = Object.values(states).filter(Boolean).length;
   const progress = Math.round((completed / items.length) * 100);
@@ -70,7 +94,12 @@ export default function HomeTab() {
   return (
     <View style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Daily Checklist</Text>
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.headerTitle}>Daily Checklist</Text>
+          <Text style={styles.greeting}>
+            Welcome{displayName ? `, ${displayName}` : ""} 👋
+          </Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
@@ -133,7 +162,7 @@ const styles = StyleSheet.create({
   header: {
     height: 72,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -141,7 +170,8 @@ const styles = StyleSheet.create({
     borderColor: "#111",
   },
   back: { width: 36, alignItems: "flex-start" },
-  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700", marginTop: 6 },
+  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700", marginTop: 13 },
+  greeting: { color: "#ECEDEE", fontSize: 14, marginTop: 6, opacity: 0.95 },
   content: { padding: 20, paddingBottom: 40 },
   progressWrap: { alignItems: "center", marginVertical: 18 },
   card: {
