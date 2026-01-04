@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -34,6 +34,7 @@ export default function HomeTab() {
   const [saving, setSaving] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [streakCount, setStreakCount] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
@@ -52,6 +53,44 @@ export default function HomeTab() {
       }
     };
     fetchProfile();
+
+    // fetch streak (consecutive days) from dailyLogs
+    const fetchStreak = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const snapshot = await getDocs(
+          collection(db, "users", uid, "dailyLogs")
+        );
+        const logsByDate = new Map<string, number>();
+        snapshot.forEach((d) => {
+          const data = d.data() as Record<string, any>;
+          // count trues in doc (flatten)
+          const flatten = (v: any): any[] => {
+            if (v == null) return [];
+            if (typeof v === "object") return Object.values(v).flatMap(flatten);
+            return [v];
+          };
+          const all = Object.values(data).flatMap(flatten);
+          const c = all.filter((x) => x === true).length;
+          logsByDate.set(d.id, c);
+        });
+
+        const isoDate = (d: Date) => d.toISOString().split("T")[0];
+        let s = 0;
+        for (let i = 0; i < 365; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const id = isoDate(d);
+          if ((logsByDate.get(id) ?? 0) > 0) s += 1;
+          else break;
+        }
+        if (mounted) setStreakCount(s);
+      } catch (err) {
+        console.error("Failed to fetch streak", err);
+      }
+    };
+    fetchStreak();
     return () => {
       mounted = false;
     };
@@ -105,6 +144,9 @@ export default function HomeTab() {
       <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
         <View style={styles.progressWrap}>
           <CircularProgress progress={progress} size={160} strokeWidth={12} />
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakBadgeText}>🔥{streakCount}</Text>
+          </View>
         </View>
 
         {items.map((it) => (
@@ -170,7 +212,12 @@ const styles = StyleSheet.create({
     borderColor: "#111",
   },
   back: { width: 36, alignItems: "flex-start" },
-  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700", marginTop: 13 },
+  headerTitle: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 13,
+  },
   greeting: { color: "#ECEDEE", fontSize: 14, marginTop: 6, opacity: 0.95 },
   content: { padding: 20, paddingBottom: 40 },
   progressWrap: { alignItems: "center", marginVertical: 18 },
@@ -193,6 +240,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeText: { color: "#F4C542", fontWeight: "700" },
+  streakBadge: { marginTop: 10, alignItems: "center" },
+  streakBadgeText: { color: "#F4C542", fontWeight: "800" },
   saveButton: {
     backgroundColor: "#F4C542",
     paddingVertical: 14,

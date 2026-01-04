@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "discipline-engine",
-    "slug": "discipline-engine",
+    "slug": "discipline-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "728c9a0f-d3fd-4f85-85f7-c50fa3632175"
+      }
+    },
+    "owner": "radleyacha"
   }
 }
