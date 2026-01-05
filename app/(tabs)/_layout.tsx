@@ -3,20 +3,30 @@ import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColor } from "@/hooks/use-theme-color";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const backgroundColor = useThemeColor({}, 'background');
+  const tintColor = useThemeColor({}, 'tint');
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarActiveTintColor: tintColor,
+        tabBarInactiveTintColor: useThemeColor({}, 'icon'),
+        tabBarStyle: {
+          backgroundColor: backgroundColor,
+        },
         headerShown: false,
         tabBarButton: HapticTab,
       }}
     >
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null, // This hides it from the tab bar
+        }}
+      />
       <Tabs.Screen
         name="home"
         options={{

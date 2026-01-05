@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import CircularProgress from "../../components/CircularProgress";
-import { Colors } from "../../constants/theme";
+import { useThemeColor } from "../../hooks/use-theme-color";
 import { saveDailyLog } from "../../services/dataService";
 import { auth, db } from "../../services/firebaseConfig";
 
@@ -35,6 +35,14 @@ export default function HomeTab() {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState<number>(0);
+
+  // Theme colors
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const tintColor = useThemeColor({}, 'tint');
+  const iconColor = useThemeColor({}, 'icon');
+  const cardBackground = useThemeColor({ light: '#F5F5F5', dark: '#222427' }, 'background');
+  const borderColor = useThemeColor({ light: '#E0E0E0', dark: '#111' }, 'icon');
 
   useEffect(() => {
     let mounted = true;
@@ -131,11 +139,11 @@ export default function HomeTab() {
   };
 
   return (
-    <View style={styles.page}>
-      <View style={styles.header}>
+    <View style={[styles.page, { backgroundColor }]}>
+      <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <View style={{ alignItems: "center" }}>
-          <Text style={styles.headerTitle}>Daily Checklist</Text>
-          <Text style={styles.greeting}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>Daily Checklist</Text>
+          <Text style={[styles.greeting, { color: iconColor }]}>
             Welcome{displayName ? `, ${displayName}` : ""} 👋
           </Text>
         </View>
@@ -145,23 +153,23 @@ export default function HomeTab() {
         <View style={styles.progressWrap}>
           <CircularProgress progress={progress} size={160} strokeWidth={12} />
           <View style={styles.streakBadge}>
-            <Text style={styles.streakBadgeText}>🔥{streakCount}</Text>
+            <Text style={[styles.streakBadgeText, { color: tintColor }]}>🔥{streakCount}</Text>
           </View>
         </View>
 
         {items.map((it) => (
-          <View key={it.key} style={styles.card}>
+          <View key={it.key} style={[styles.card, { backgroundColor: cardBackground }]}>
             <View style={styles.cardLeft}>
-              <Text style={styles.cardLabel}>{it.label}</Text>
+              <Text style={[styles.cardLabel, { color: textColor }]}>{it.label}</Text>
               {typeof it.streak === "number" ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>🔥{it.streak}</Text>
+                <View style={[styles.badge, { backgroundColor: iconColor }]}>
+                  <Text style={[styles.badgeText, { color: tintColor }]}>🔥{it.streak}</Text>
                 </View>
               ) : null}
             </View>
             <Switch
-              trackColor={{ true: "#F4C542", false: "#8A8A8A" }}
-              thumbColor={states[it.key] ? "#FFF" : "#EEE"}
+              trackColor={{ true: tintColor, false: iconColor }}
+              thumbColor={states[it.key] ? textColor : iconColor}
               value={!!states[it.key]}
               onValueChange={() => toggle(it.key)}
             />
@@ -169,14 +177,14 @@ export default function HomeTab() {
         ))}
 
         <TouchableOpacity
-          style={[styles.saveButton, saving ? { opacity: 0.9 } : undefined]}
+          style={[styles.saveButton, { backgroundColor: tintColor }, saving ? { opacity: 0.9 } : undefined]}
           onPress={handleSave}
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color={textColor} />
           ) : (
-            <Text style={styles.saveText}>Save</Text>
+            <Text style={[styles.saveText, { color: textColor }]}>Save</Text>
           )}
         </TouchableOpacity>
 
@@ -189,9 +197,9 @@ export default function HomeTab() {
           disabled={logoutLoading}
         >
           {logoutLoading ? (
-            <ActivityIndicator color="#F4C542" />
+            <ActivityIndicator color={tintColor} />
           ) : (
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={[styles.logoutText, { color: tintColor }]}>Logout</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -200,7 +208,7 @@ export default function HomeTab() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: Colors.dark.background },
+  page: { flex: 1, padding: 20 },
   header: {
     height: 72,
     paddingHorizontal: 12,
@@ -209,20 +217,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderBottomWidth: 1,
-    borderColor: "#111",
   },
   back: { width: 36, alignItems: "flex-start" },
   headerTitle: {
-    color: "#FFF",
     fontSize: 18,
     fontWeight: "700",
     marginTop: 13,
   },
-  greeting: { color: "#ECEDEE", fontSize: 14, marginTop: 6, opacity: 0.95 },
+  greeting: { fontSize: 14, marginTop: 6, opacity: 0.95 },
   content: { padding: 20, paddingBottom: 40 },
   progressWrap: { alignItems: "center", marginVertical: 18 },
   card: {
-    backgroundColor: "#222427",
     padding: 14,
     borderRadius: 10,
     marginBottom: 12,
@@ -231,25 +236,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardLeft: { flexDirection: "row", alignItems: "center" },
-  cardLabel: { color: "#ECEDEE", fontSize: 16, fontWeight: "600" },
+  cardLabel: { fontSize: 16, fontWeight: "600" },
   badge: {
-    backgroundColor: "#1F1F1F",
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  badgeText: { color: "#F4C542", fontWeight: "700" },
+  badgeText: { fontWeight: "700" },
   streakBadge: { marginTop: 10, alignItems: "center" },
-  streakBadgeText: { color: "#F4C542", fontWeight: "800" },
+  streakBadgeText: { fontWeight: "800" },
   saveButton: {
-    backgroundColor: "#F4C542",
     paddingVertical: 14,
     borderRadius: 10,
     marginTop: 8,
     alignItems: "center",
   },
-  saveText: { color: "#000", fontWeight: "800", fontSize: 16 },
+  saveText: { fontWeight: "800", fontSize: 16 },
   logoutButton: { marginTop: 10, alignItems: "center" },
-  logoutText: { color: "#F4C542", fontWeight: "700" },
+  logoutText: { fontWeight: "700" },
 });
