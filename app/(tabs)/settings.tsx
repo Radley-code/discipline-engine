@@ -1,39 +1,144 @@
-import { useRouter } from "expo-router";
-import { signOut } from "firebase/auth";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors } from "../../constants/theme";
-import { auth } from "../../services/firebaseConfig";
+import { useRouter } from 'expo-router';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import {
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useThemeContext } from '../../contexts/theme-context';
+import { useThemeColor } from '../../hooks/use-theme-color';
+import { auth, db } from '../../services/firebaseConfig';
 
-export default function SettingsTab() {
+export default function SettingsScreen() {
+  const { theme, setTheme, toggleTheme } = useThemeContext();
+  const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   const router = useRouter();
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } finally {
-      router.replace("/screens/LoginScreen");
-    }
+  // Theme colors
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const tintColor = useThemeColor({}, 'tint');
+  const iconColor = useThemeColor({}, 'icon');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+
+      const docSnap = await getDoc(doc(db, 'users', uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPrefs(data.notificationPrefs || {});
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  const updateSetting = async (key: string, value: any) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    await updateDoc(doc(db, 'users', uid), { [key]: value });
   };
 
+  const handleThemeToggle = async () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    await updateSetting('theme', newTheme);
+  };
+
+  const togglePref = (key: string) => {
+    const newPrefs = { ...prefs, [key]: !prefs[key] };
+    setPrefs(newPrefs);
+    updateSetting('notificationPrefs', newPrefs);
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.replace('/screens/LoginScreen');
+  };
+
+  const openLink = (url: string) => Linking.openURL(url);
+
   return (
-    <View style={styles.page}>
-      <Text style={styles.title}>Settings</Text>
-      <TouchableOpacity style={styles.signout} onPress={handleSignOut}>
-        <Text style={styles.signoutText}>Sign Out</Text>
+    <ScrollView style={[styles.container, { backgroundColor }]}>
+      {/* Theme Section */}
+      <Text style={[styles.sectionTitle, { color: tintColor }]}>Theme</Text>
+      <View style={styles.row}>
+        <View>
+          <Text style={[styles.label, { color: textColor }]}>Dark Mode</Text>
+          <Text style={[styles.subtext, { color: iconColor }]}>{theme === 'dark' ? 'Enabled' : 'Disabled'}</Text>
+        </View>
+        <Switch value={theme === 'dark'} onValueChange={handleThemeToggle} />
+      </View>
+
+      {/* Notifications Section */}
+      <Text style={[styles.sectionTitle, { color: tintColor }]}>Notifications</Text>
+      {['morningPrayer', 'workout', 'deepWork', 'reading', 'journaling'].map((key) => (
+        <View key={key} style={styles.row}>
+          <View>
+            <Text style={[styles.label, { color: textColor }]}>{key.replace(/([A-Z])/g, ' $1')}</Text>
+            <Text style={[styles.subtext, { color: iconColor }]}>
+              Notifications {prefs[key] ? 'enabled' : 'disabled'} for {key.replace(/([A-Z])/g, ' $1')}
+            </Text>
+          </View>
+          <Switch value={prefs[key]} onValueChange={() => togglePref(key)} />
+        </View>
+      ))}
+
+      {/* Data Management Section */}
+      <Text style={[styles.sectionTitle, { color: tintColor }]}>Data Management</Text>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]}>
+        <Text style={[styles.linkText, { color: textColor }]}>Export Weekly Summary</Text>
       </TouchableOpacity>
-    </View>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]}>
+        <Text style={[styles.linkText, { color: textColor }]}>Backup Data</Text>
+      </TouchableOpacity>
+
+      {/* Account & General Section */}
+      <Text style={[styles.sectionTitle, { color: tintColor }]}>Account & General</Text>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]}>
+        <Text style={[styles.linkText, { color: textColor }]}>Profile Information</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]} onPress={() => openLink('https://yourapp.com/privacy')}>
+        <Text style={[styles.linkText, { color: textColor }]}>Privacy Policy</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]} onPress={() => openLink('https://yourapp.com/terms')}>
+        <Text style={[styles.linkText, { color: textColor }]}>Terms of Service</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.linkRow, { borderBottomColor: iconColor }]} onPress={handleLogout}>
+        <Text style={[styles.linkText, { color: textColor }]}>Sign Out</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: Colors.dark.background, padding: 20 },
-  title: { color: "#FFF", fontSize: 22, fontWeight: "700", marginBottom: 12 },
-  signout: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#222",
-    alignItems: "center",
+  container: { flex: 1, padding: 20 },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 24,
+    marginBottom: 12,
   },
-  signoutText: { color: "#F4C542", fontWeight: "700" },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  label: { fontSize: 14 },
+  subtext: { fontSize: 12 },
+  linkRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  linkText: { fontSize: 14 },
 });
