@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   Linking,
@@ -27,10 +27,11 @@ export default function SettingsScreen() {
   const iconColor = useThemeColor({}, 'icon');
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
 
+    // Initial load
+    const fetchSettings = async () => {
       const docSnap = await getDoc(doc(db, 'users', uid));
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -39,6 +40,18 @@ export default function SettingsScreen() {
     };
 
     fetchSettings();
+
+    // Set up real-time listener for notification preferences
+    const unsubscribe = onSnapshot(doc(db, 'users', uid), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        setPrefs(data.notificationPrefs || {});
+      }
+    }, (error) => {
+      console.error('Error listening to notification preferences:', error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const updateSetting = async (key: string, value: any) => {

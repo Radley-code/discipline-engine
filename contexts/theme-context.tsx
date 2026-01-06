@@ -1,4 +1,5 @@
-import { doc, getDoc } from 'firebase/firestore';
+import type { DocumentSnapshot, FirestoreError } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { auth, db } from '../services/firebaseConfig';
@@ -30,10 +31,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(systemColorScheme || 'dark');
 
   useEffect(() => {
-    const loadUserTheme = async () => {
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
 
+    // Initial load
+    const loadUserTheme = async () => {
       try {
         const docSnap = await getDoc(doc(db, 'users', uid));
         if (docSnap.exists()) {
@@ -48,6 +50,20 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     };
 
     loadUserTheme();
+
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(doc(db, 'users', uid), (docSnapshot: DocumentSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userTheme = docSnapshot.data().theme as Theme;
+        if (userTheme) {
+          setThemeState(userTheme);
+        }
+      }
+    }, (error: FirestoreError) => {
+      console.error('Error listening to theme changes:', error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const setTheme = (newTheme: Theme) => {

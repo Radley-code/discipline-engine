@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -46,10 +46,12 @@ export default function HomeTab() {
 
   useEffect(() => {
     let mounted = true;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    // Fetch profile
     const fetchProfile = async () => {
       try {
-        const uid = auth.currentUser?.uid;
-        if (!uid) return;
         const ref = doc(db, "users", uid);
         const snap = await getDoc(ref);
         if (mounted && snap.exists()) {
@@ -60,13 +62,47 @@ export default function HomeTab() {
         console.error("Failed to load profile", e);
       }
     };
+
+    // Fetch today's daily log
+    const fetchTodayLog = async () => {
+      try {
+        const dateId = new Date().toISOString().split("T")[0];
+        const docSnap = await getDoc(doc(db, "users", uid, "dailyLogs", dateId));
+        if (mounted && docSnap.exists()) {
+          const data = docSnap.data();
+          // Load saved states
+          const savedStates: Record<string, boolean> = {};
+          items.forEach(item => {
+            savedStates[item.key] = data[item.key] || false;
+          });
+          setStates(savedStates);
+        }
+      } catch (err) {
+        console.error("Failed to fetch today's log", err);
+      }
+    };
+
+    // Set up real-time listener for today's daily log
+    const dateId = new Date().toISOString().split("T")[0];
+    const unsubscribeLog = onSnapshot(doc(db, "users", uid, "dailyLogs", dateId), (docSnapshot) => {
+      if (mounted && docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        const savedStates: Record<string, boolean> = {};
+        items.forEach(item => {
+          savedStates[item.key] = data[item.key] || false;
+        });
+        setStates(savedStates);
+      }
+    }, (error) => {
+      console.error("Error listening to daily log changes:", error);
+    });
+
     fetchProfile();
+    fetchTodayLog();
 
     // fetch streak (consecutive days) from dailyLogs
     const fetchStreak = async () => {
       try {
-        const uid = auth.currentUser?.uid;
-        if (!uid) return;
         const snapshot = await getDocs(
           collection(db, "users", uid, "dailyLogs")
         );
@@ -99,8 +135,10 @@ export default function HomeTab() {
       }
     };
     fetchStreak();
+
     return () => {
       mounted = false;
+      unsubscribeLog();
     };
   }, []);
 
@@ -117,6 +155,7 @@ export default function HomeTab() {
     try {
       const dateId = new Date().toISOString().split("T")[0];
       await saveDailyLog(uid, dateId, states);
+      // Don't reset states after save - keep them as they are
       alert("Progress saved");
     } catch (err) {
       console.error("Save error", err);
