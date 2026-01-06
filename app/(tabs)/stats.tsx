@@ -2,13 +2,13 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    LayoutChangeEvent,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  LayoutChangeEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { BarChart, LineChart } from "react-native-gifted-charts";
 import { useThemeColor } from "../../hooks/use-theme-color";
@@ -109,11 +109,16 @@ export default function StatsScreen() {
         };
 
         const labels = lastNDates(7);
-        const chartData = labels.map((dateId) => ({
-          value: logsByDate.get(dateId) ?? 0,
-          label: dateId.slice(5),
-          frontColor: tintColor,
-        }));
+        const chartData = labels.map((dateId, index) => {
+          const date = new Date(dateId);
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const dayName = dayNames[date.getDay()];
+          return {
+            value: logsByDate.get(dateId) ?? 0,
+            label: dayName,
+            frontColor: tintColor,
+          };
+        });
 
         // Compute consecutive-day streak from today backward
         let s = 0;
@@ -236,23 +241,30 @@ export default function StatsScreen() {
         >
           <LineChart
             data={data.map((d) => ({ value: d.value, label: d.label }))}
-            height={180}
+            height={200}
             curved
             areaChart
-            initialSpacing={12}
-            spacing={20}
+            initialSpacing={8}
+            spacing={containerWidth > 350 ? 35 : 25}
             hideRules
-            yAxisThickness={0}
-            xAxisLabelTextStyle={{ color: textColor }}
-            yAxisTextStyle={{ color: textColor }}
+            yAxisThickness={1}
+            yAxisColor={textColor}
+            xAxisLabelTextStyle={{ color: textColor, fontSize: 12 }}
+            yAxisTextStyle={{ color: textColor, fontSize: 11 }}
             color={tintColor}
             maxValue={Math.max(7, ...data.map((d) => d.value))}
+            thickness={2}
+            dataPointsRadius={4}
+            dataPointsColor={tintColor}
+            stepHeight={40}
+            yAxisLabelWidth={35}
+            noOfSections={5}
           />
 
           {/* average line overlay */}
           {containerWidth > 0 && data.length > 0
             ? (() => {
-                const chartHeight = 180; // matches BarChart height
+                const chartHeight = 200; // matches LineChart height
                 const maxVal = Math.max(7, ...data.map((d) => d.value));
                 const avg = Math.round(
                   data.reduce((s, d) => s + d.value, 0) / data.length
@@ -275,17 +287,15 @@ export default function StatsScreen() {
           {containerWidth > 0 &&
             data.length > 0 &&
             (() => {
-              const barWidth = 30;
-              const spacing = 20;
-              const totalWidth =
-                data.length * barWidth + Math.max(0, data.length - 1) * spacing;
-              const startX = Math.max(0, (containerWidth - totalWidth) / 2);
+              const spacing = containerWidth > 350 ? 35 : 25;
+              const totalWidth = data.length * spacing;
+              const startX = Math.max(8, (containerWidth - totalWidth) / 2);
               const maxVal = Math.max(7, ...data.map((d) => d.value));
               return (
                 <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
                   {data.map((d, i) => {
-                    const left = startX + i * (barWidth + spacing);
-                    const top = (1 - d.value / maxVal) * 180;
+                    const left = startX + i * spacing;
+                    const top = (1 - d.value / maxVal) * 200;
                     return (
                       <TouchableOpacity
                         key={i}
@@ -293,7 +303,7 @@ export default function StatsScreen() {
                         onPress={() =>
                           setTooltip({
                             visible: true,
-                            x: left + barWidth / 2,
+                            x: left + spacing / 2,
                             y: top,
                             label: d.label,
                             value: d.value,
@@ -303,8 +313,8 @@ export default function StatsScreen() {
                           position: "absolute",
                           left,
                           top: 0,
-                          width: barWidth,
-                          height: 180,
+                          width: spacing,
+                          height: 200,
                         }}
                       />
                     );
