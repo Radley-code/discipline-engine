@@ -15,6 +15,7 @@ import { auth } from "../../services/firebaseConfig";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -58,14 +59,24 @@ export default function LoginScreen() {
         />
 
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          placeholder="Enter your password"
-          placeholderTextColor="#9A9A9A"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Enter your password"
+            placeholderTextColor="#9A9A9A"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={[styles.input, { flex: 1 }]}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.eyeIconText}>
+              {showPassword ? "👁️" : "👁️‍🗨️"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.forgotContainer} onPress={() => {}}>
           <Text style={styles.forgotText}>Forgot password?</Text>
@@ -138,6 +149,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     marginBottom: 14,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1F2126",
+    borderRadius: 8,
+    marginBottom: 14,
+  },
+  eyeIcon: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  eyeIconText: {
+    fontSize: 18,
   },
   forgotContainer: { alignSelf: "flex-end", marginBottom: 8 },
   forgotText: { color: "#BEBEBE", fontSize: 12 },

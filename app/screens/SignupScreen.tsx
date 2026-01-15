@@ -3,13 +3,13 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { auth, db } from "../../services/firebaseConfig";
 
@@ -17,6 +17,7 @@ export default function SignupScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -99,14 +100,24 @@ export default function SignupScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <TextInput
-          placeholder="Password"
-          placeholderTextColor="#9A9A9A"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#9A9A9A"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={[styles.input, { flex: 1 }]}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.eyeIconText}>
+              {showPassword ? "👁️" : "👁️‍🗨️"}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           placeholder="Referral Code (Optional)"
           placeholderTextColor="#9A9A9A"
@@ -161,6 +172,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     marginBottom: 12,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1F2126",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  eyeIcon: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  eyeIconText: {
+    fontSize: 18,
   },
   actionButton: {
     backgroundColor: "#F4C542",
