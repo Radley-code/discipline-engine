@@ -42,7 +42,7 @@ export default function HomeTab() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState<number>(0);
   const [activityStreaks, setActivityStreaks] = useState<Record<string, number>>({});
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(true); // Assume online initially
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Theme colors
@@ -61,19 +61,26 @@ export default function HomeTab() {
     // Monitor connection status
     const checkConnection = async () => {
       try {
-        // Test connection with a simple read
-        await getDoc(doc(db, "users", uid));
+        // Test connection with a simple read - use a more reliable approach
+        const testRef = doc(db, "users", uid);
+        await getDoc(testRef);
         if (mounted) {
           setIsOnline(true);
           setConnectionError(null);
+          console.log("Connection check: Online");
         }
       } catch (error: any) {
+        console.error("Connection check failed:", error.message);
         if (mounted) {
-          setIsOnline(false);
-          if (error.message.includes('offline')) {
-            setConnectionError('Offline mode - changes will sync when connection is restored');
-          } else {
+          // Check if it's actually an offline error or other issue
+          if (error.message.includes('offline') || error.message.includes('unavailable') || error.message.includes('network')) {
+            setIsOnline(false);
             setConnectionError('Connection issue - please check your internet');
+          } else {
+            // Other errors might mean we're online but there's a permission issue
+            console.log("Connection check: Online (but other error occurred)");
+            setIsOnline(true);
+            setConnectionError(null);
           }
         }
       }
@@ -262,10 +269,10 @@ export default function HomeTab() {
             Welcome{displayName ? `, ${displayName}` : ""} 👋
           </Text>
           {/* Connection Status Indicator */}
-          {connectionError && (
+          {!isOnline && connectionError && (
             <View style={styles.connectionStatus}>
-              <Text style={[styles.connectionText, { color: isOnline ? '#4CAF50' : '#FF9800' }]}>
-                {isOnline ? '🟢 Online' : '🟡 ' + connectionError}
+              <Text style={[styles.connectionText, { color: '#FF9800' }]}>
+                🟡 {connectionError}
               </Text>
             </View>
           )}

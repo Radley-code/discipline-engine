@@ -20,43 +20,55 @@ export async function saveDailyLog(userId: string, dateId: string, blocks: Recor
   });
 }
 
+async function calculateRealStreak(userId: string, activityKey: string): Promise<number> {
+  // Check consecutive days backwards from today
+  let streak = 0;
+  let currentDate = new Date();
+  
+  for (let i = 0; i < 365; i++) { // Check up to a year back
+    const dateId = currentDate.toISOString().split("T")[0];
+    const logRef = doc(db, `users/${userId}/dailyLogs/${dateId}`);
+    const logSnap = await getDoc(logRef);
+    
+    if (logSnap.exists()) {
+      const data = logSnap.data();
+      const blocks = data.blocks || {};
+      
+      if (blocks[activityKey] === true) {
+        streak++;
+        currentDate.setDate(currentDate.getDate() - 1); // Check previous day
+      } else {
+        // Break in streak - stop counting
+        break;
+      }
+    } else {
+      // No log for this day - break streak
+      break;
+    }
+  }
+  
+  return streak;
+}
+
 async function updateActivityStreaks(userId: string, blocks: Record<string, boolean>, dateId: string) {
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
   
   if (!userSnap.exists()) return;
   
-  const userData = userSnap.data();
-  const currentStreaks = userData.streaks || {};
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayId = yesterday.toISOString().split("T")[0];
+  const newStreaks: Record<string, number> = {};
   
-  // Get yesterday's log to check if streak continues
-  const yesterdayLogRef = doc(db, `users/${userId}/dailyLogs/${yesterdayId}`);
-  const yesterdaySnap = await getDoc(yesterdayLogRef);
-  const yesterdayBlocks = yesterdaySnap.exists() ? yesterdaySnap.data().blocks : {};
-  
-  const newStreaks = { ...currentStreaks };
-  
-  // Update streak for each activity
-  Object.keys(blocks).forEach(activityKey => {
-    const isCompletedToday = blocks[activityKey];
-    const wasCompletedYesterday = yesterdayBlocks[activityKey] || false;
-    
-    if (isCompletedToday) {
-      if (wasCompletedYesterday) {
-        // Continue streak
-        newStreaks[activityKey] = (currentStreaks[activityKey] || 0) + 1;
-      } else {
-        // Start new streak
-        newStreaks[activityKey] = 1;
-      }
+  // Calculate real streak for each activity by checking consecutive days
+  for (const activityKey of Object.keys(blocks)) {
+    if (blocks[activityKey] === true) {
+      // Only recalculate if activity was completed today
+      newStreaks[activityKey] = await calculateRealStreak(userId, activityKey);
     } else {
-      // Reset streak if not completed today
-      newStreaks[activityKey] = 0;
+      // Keep existing streak if activity not completed today
+      const currentStreaks = userSnap.data()?.streaks || {};
+      newStreaks[activityKey] = currentStreaks[activityKey] || 0;
     }
-  });
+  }
   
   // Save updated streaks to user profile
   await setDoc(userRef, { streaks: newStreaks }, { merge: true });
