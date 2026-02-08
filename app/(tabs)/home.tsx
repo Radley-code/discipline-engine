@@ -3,17 +3,17 @@ import { signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import CircularProgress from "../../components/CircularProgress";
 import { useThemeColor } from "../../hooks/use-theme-color";
-import { saveDailyLog } from "../../services/dataService";
+import { getActivityStreaks, saveDailyLog } from "../../services/dataService";
 import { auth, db } from "../../services/firebaseConfig";
 
 interface Activity {
@@ -23,13 +23,13 @@ interface Activity {
 }
 
 const items: Activity[] = [
-  { key: "morningPrayer", label: "Morning Prayer", streak: 1 },
-  { key: "workout", label: "Workout", streak: 5 },
-  { key: "deepWork", label: "Deep Work", streak: 1 },
-  { key: "tradingSession", label: "Trading Session", streak: 7 },
-  { key: "reading", label: "Reading", streak: 1 },
-  { key: "journaling", label: "Journaling", streak: 20 },
-  { key: "meditation", label: "Meditation", streak: 1 },
+  { key: "morningPrayer", label: "Morning Prayer" },
+  { key: "workout", label: "Workout" },
+  { key: "deepWork", label: "Deep Work" },
+  { key: "tradingSession", label: "Trading Session" },
+  { key: "reading", label: "Reading" },
+  { key: "journaling", label: "Journaling" },
+  { key: "meditation", label: "Meditation" },
 ];
 
 export default function HomeTab() {
@@ -41,6 +41,9 @@ export default function HomeTab() {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState<number>(0);
+  const [activityStreaks, setActivityStreaks] = useState<Record<string, number>>({});
+  const [isOnline, setIsOnline] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -55,19 +58,67 @@ export default function HomeTab() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
 
-    // Fetch profile
+    // Monitor connection status
+    const checkConnection = async () => {
+      try {
+        // Test connection with a simple read
+        await getDoc(doc(db, "users", uid));
+        if (mounted) {
+          setIsOnline(true);
+          setConnectionError(null);
+        }
+      } catch (error: any) {
+        if (mounted) {
+          setIsOnline(false);
+          if (error.message.includes('offline')) {
+            setConnectionError('Offline mode - changes will sync when connection is restored');
+          } else {
+            setConnectionError('Connection issue - please check your internet');
+          }
+        }
+      }
+    };
+
+    // Initial connection check
+    checkConnection();
+
+    // Set up periodic connection checks
+    const connectionInterval = setInterval(checkConnection, 30000); // Check every 30 seconds
+
+    // Fetch profile with error handling
     const fetchProfile = async () => {
       try {
         const ref = doc(db, "users", uid);
         const snap = await getDoc(ref);
         if (mounted && snap.exists()) {
-          const data = snap.data() as any;
-          if (data?.name) setDisplayName(String(data.name));
+          const data = snap.data();
+          setDisplayName(data.name || null);
+          
+          // Fetch activity streaks
+          try {
+            const streaks = await getActivityStreaks(uid);
+            if (mounted) {
+              setActivityStreaks(streaks);
+              setIsOnline(true);
+              setConnectionError(null);
+            }
+          } catch (streakError) {
+            console.warn("Could not fetch streaks, using cached data:", streakError);
+            // Continue with existing streaks
+          }
         }
-      } catch (e) {
-        console.error("Failed to load profile", e);
+      } catch (err: any) {
+        console.error("Error fetching profile:", err);
+        if (err.message.includes('offline')) {
+          if (mounted) {
+            setIsOnline(false);
+            setConnectionError('Offline mode - working with cached data');
+          }
+        }
       }
     };
+
+    fetchProfile();
 
     // Fetch today's daily log
     const fetchTodayLog = async () => {
@@ -145,6 +196,7 @@ export default function HomeTab() {
     return () => {
       mounted = false;
       unsubscribeLog();
+      clearInterval(connectionInterval);
     };
   }, []);
 
@@ -158,14 +210,32 @@ export default function HomeTab() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     setSaving(true);
+    setConnectionError(null);
+    
     try {
       const dateId = new Date().toISOString().split("T")[0];
       await saveDailyLog(uid, dateId, states);
-      // Don't reset states after save - keep them as they are
-      alert("Progress saved");
-    } catch (err) {
+      
+      // Refresh streaks immediately after save
+      try {
+        const updatedStreaks = await getActivityStreaks(uid);
+        setActivityStreaks(updatedStreaks);
+        setIsOnline(true);
+        setConnectionError(null);
+        alert("Progress saved successfully!");
+      } catch (streakError) {
+        console.warn("Streaks will update when connection is restored");
+        alert("Progress saved locally - will sync when online");
+      }
+    } catch (err: any) {
       console.error("Save error", err);
-      alert("Failed to save progress");
+      if (err.message.includes('offline')) {
+        setConnectionError('Offline mode - progress saved locally, will sync when online');
+        alert("Offline mode: Progress saved locally and will sync when connection is restored");
+      } else {
+        setConnectionError('Failed to save - please try again');
+        alert("Failed to save progress. Please check your connection and try again.");
+      }
     } finally {
       setSaving(false);
     }
@@ -191,6 +261,14 @@ export default function HomeTab() {
           <Text style={[styles.greeting, { color: iconColor }]}>
             Welcome{displayName ? `, ${displayName}` : ""} 👋
           </Text>
+          {/* Connection Status Indicator */}
+          {connectionError && (
+            <View style={styles.connectionStatus}>
+              <Text style={[styles.connectionText, { color: isOnline ? '#4CAF50' : '#FF9800' }]}>
+                {isOnline ? '🟢 Online' : '🟡 ' + connectionError}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -204,14 +282,15 @@ export default function HomeTab() {
 
         {items.map((it) => {
           const isChecked = states[it.key];
+          const currentStreak = activityStreaks[it.key] || 0;
           
           return (
             <View key={it.key} style={[styles.card, { backgroundColor: cardBackground }]}>
               <View style={styles.cardLeft}>
                 <Text style={[styles.cardLabel, { color: textColor }]}>{it.label}</Text>
-                {typeof it.streak === "number" ? (
+                {currentStreak > 0 ? (
                   <View style={[styles.badge, { backgroundColor: iconColor }]}>
-                    <Text style={[styles.badgeText, { color: tintColor }]}>🔥{it.streak}</Text>
+                    <Text style={[styles.badgeText, { color: tintColor }]}>🔥{currentStreak}</Text>
                   </View>
                 ) : null}
               </View>
@@ -279,6 +358,8 @@ const styles = StyleSheet.create({
     marginTop: 13,
   },
   greeting: { fontSize: 14, marginTop: 6, opacity: 0.95 },
+  connectionStatus: { marginTop: 8, alignItems: "center" },
+  connectionText: { fontSize: 11, fontStyle: "italic" },
   content: { padding: 20, paddingBottom: 40 },
   progressWrap: { alignItems: "center", marginVertical: 18 },
   card: {
