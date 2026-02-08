@@ -7,7 +7,7 @@ export default function Index() {
 
   useEffect(() => {
     const id = setTimeout(() => {
-      // If user is signed in, open home tab, otherwise show login
+      // when user is signed in, open home tab, if not  show login
       if (auth.currentUser) {
         router.replace("./home");
       } else {
